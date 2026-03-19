@@ -59,19 +59,38 @@ export default async (req: Request, context: Context) => {
       manufacturer_sku: body.manufacturer_sku || "",
       ean_gtin: body.ean_gtin || "",
       product_name: body.product_name || body.manufacturer_sku || body.ean_gtin || "",
+      product_series: null,
       category: body.category || "",
-      product_status: body.product_status || "",
+      product_status: null,
+      description: null,
       // Electrical
       vf_typ: null, vf_min: null, vf_max: null,
-      if_typ: null, if_max: null,
-      vr_max: null, pd_max: null, power_nominal: null,
+      if_typ: null, if_max: null, if_pulse_max: null,
+      vr_max: null, pd_max: null, power_nominal: null, esd_hbm: null,
       // Optical
-      flux_typ: null, flux_min: null, efficacy: null,
-      cct_k: null, cri_ra: null, cri_r9: null,
-      viewing_angle: null, dom_wavelength: null, peak_wavelength: null, sdcm: null,
-      // Thermal / Mechanical
-      package_type: null, dim_l_mm: null, dim_w_mm: null, dim_h_mm: null,
-      rth_js: null, tj_max: null, ts_max: null, weight_g: null,
+      flux_typ: null, flux_min: null, flux_max: null, flux_test_current_ma: null,
+      efficacy: null,
+      cct_k: null, cct_options: null,
+      cri_ra: null, cri_r9: null, cri_min: null,
+      viewing_angle: null,
+      dom_wavelength: null, dom_wavelength_min: null, dom_wavelength_max: null,
+      peak_wavelength: null, sdcm: null, spectrum_type: null,
+      // Mechanical
+      package_type: null, package_standard: null,
+      dim_l_mm: null, dim_w_mm: null, dim_h_mm: null,
+      lens_type: null, lead_type: null, weight_g: null, marking: null,
+      // Thermal
+      rth_js: null, rth_ja: null,
+      tj_max: null, tj_typ: null, ts_max: null,
+      ta_range_min: null, ta_range_max: null,
+      storage_temp_min: null, storage_temp_max: null,
+      reflow_profile: null, moisture_sensitivity: null,
+      // Lifetime
+      lifetime_l70_hours: null, lifetime_test_temp_c: null, lifetime_test_current_ma: null,
+      // Compliance
+      rohs_compliant: null, reach_compliant: null, aec_q102: null, ul_listed: null,
+      // Datasheet info
+      datasheet_revision: null, datasheet_date: null,
       // Crawl status
       crawl_status: "queued",
       datasheet_url: null,
@@ -81,6 +100,7 @@ export default async (req: Request, context: Context) => {
       crawled_at: null,
       retry_count: 0,
       error_log: null,
+      crawl_log: [],
       // Meta
       notes: body.notes || "",
       tags: body.tags || [],
