@@ -183,6 +183,22 @@
   .settings-card { background:var(--lum-white); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:24px; margin-bottom:20px; }
   .settings-card h4 { font-size:15px; font-weight:700; color:var(--lum-primary); margin-bottom:16px; }
 
+  /* CRAWL LOG */
+  .crawl-log { margin-top:8px; }
+  .log-entry { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--lum-cream); font-size:12px; position:relative; }
+  .log-entry:last-child { border-bottom:none; }
+  .log-dot { width:10px; height:10px; border-radius:50%; margin-top:3px; flex-shrink:0; }
+  .log-dot.dot-ok { background:var(--lum-green); }
+  .log-dot.dot-run { background:var(--lum-teal); animation:pulse 1.2s infinite; }
+  .log-dot.dot-fail { background:var(--lum-red); }
+  .log-dot.dot-wait { background:var(--lum-light); }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  .log-line { position:absolute; left:4px; top:16px; bottom:-8px; width:2px; background:var(--lum-light); }
+  .log-entry:last-child .log-line { display:none; }
+  .log-step { font-weight:600; color:var(--lum-primary); }
+  .log-detail { color:var(--lum-mint); word-break:break-all; }
+  .log-time { color:var(--lum-light); font-size:11px; margin-left:auto; white-space:nowrap; }
+
   /* FOOTER */
   .site-footer { text-align:center; padding:40px 24px 24px; font-size:12px; color:var(--lum-mint); }
   .site-footer img { height:30px; opacity:.5; margin-bottom:10px; }
@@ -390,6 +406,8 @@ async function fetchArticles() {
     updateStats();
     renderFilters();
     renderTable();
+    // Auto-refresh detail panel if open
+    if (currentDetailId) renderDetail(currentDetailId);
     // Auto-poll if any pending
     if (articles.some(a => a.crawl_status === 'searching' || a.crawl_status === 'queued')) {
       startPoll();
@@ -573,7 +591,16 @@ async function crawlAll() {
 }
 
 // ═══════════ DETAIL PANEL ═══════════
+let currentDetailId = null;
+
 function openDetail(id) {
+  currentDetailId = id;
+  renderDetail(id);
+  document.getElementById('detail-bg').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function renderDetail(id) {
   const a = articles.find(x => x.id === id);
   if (!a) return;
   document.getElementById('d-title').textContent = a.product_name || a.manufacturer_sku || '–';
@@ -638,16 +665,11 @@ function openDetail(id) {
       </div>`;
     }
   } else if (a.crawl_status === 'searching' || a.crawl_status === 'queued') {
-    html += `<div class="d-section" style="text-align:center;padding:32px 0;">
-      <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:12px;"></div>
-      <p style="color:var(--lum-mint);font-size:13px;">Suche läuft … Datenblatt wird gesucht.</p>
-    </div>`;
+    html += renderCrawlLog(a, true);
   } else if (a.crawl_status === 'failed') {
-    html += `<div class="d-section" style="text-align:center;padding:32px 0;">
-      <span class="material-symbols-outlined" style="font-size:40px;color:var(--lum-red);opacity:.5;margin-bottom:8px;">error_outline</span>
-      <p style="color:var(--lum-mint);font-size:13px;margin-bottom:8px;">Kein Datenblatt gefunden.</p>
-      ${a.error_log ? `<p style="font-size:11px;color:var(--lum-mint);background:var(--lum-cream);padding:8px 12px;border-radius:6px;text-align:left;">${esc(a.error_log)}</p>` : ''}
-      <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="triggerCrawl('${a.id}')">
+    html += renderCrawlLog(a, false);
+    html += `<div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-outline btn-sm" onclick="triggerCrawl('${a.id}')">
         <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Erneut suchen
       </button>
     </div>`;
@@ -661,11 +683,10 @@ function openDetail(id) {
   </div>`;
 
   body.innerHTML = html;
-  document.getElementById('detail-bg').classList.add('open');
-  document.getElementById('detail-panel').classList.add('open');
 }
 
 function closeDetail() {
+  currentDetailId = null;
   document.getElementById('detail-bg').classList.remove('open');
   document.getElementById('detail-panel').classList.remove('open');
 }
@@ -684,6 +705,53 @@ function formatDims(a) {
   if (!a.dim_l_mm && !a.dim_w_mm) return null;
   const parts = [a.dim_l_mm, a.dim_w_mm, a.dim_h_mm].filter(v => v !== null);
   return parts.join(' × ') + ' mm';
+}
+
+function renderCrawlLog(a, isRunning) {
+  const logs = a.crawl_log || [];
+  if (logs.length === 0 && isRunning) {
+    return `<div class="d-section" style="text-align:center;padding:32px 0;">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:12px;"></div>
+      <p style="color:var(--lum-mint);font-size:13px;">Crawler wird gestartet …</p>
+    </div>`;
+  }
+  if (logs.length === 0) return '';
+
+  const stepIcons = {
+    start: '🚀', api_connect: '🔌', url_found: '🔗', downloading: '⬇️',
+    downloaded: '💾', saved: '💾', extracting: '🔍', extracted: '✅',
+    done: '🎉', search_failed: '❌', download_failed: '⚠️', extract_failed: '⚠️'
+  };
+  const failSteps = ['search_failed', 'download_failed', 'extract_failed'];
+  const doneSteps = ['url_found', 'downloaded', 'saved', 'extracted', 'done'];
+
+  let html = `<div class="d-section"><div class="d-section-title">Crawler-Fortschritt</div><div class="crawl-log">`;
+  logs.forEach((entry, i) => {
+    const isLast = i === logs.length - 1;
+    const isFail = failSteps.includes(entry.step);
+    const isDone = doneSteps.includes(entry.step);
+    const dotClass = isFail ? 'dot-fail' : (isLast && isRunning ? 'dot-run' : (isDone ? 'dot-ok' : 'dot-ok'));
+    const time = new Date(entry.time).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const icon = stepIcons[entry.step] || '•';
+
+    html += `<div class="log-entry">
+      <div style="position:relative;"><div class="log-dot ${dotClass}"></div>${!isLast ? '<div class="log-line"></div>' : ''}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="log-step">${icon} ${esc(entry.detail)}</div>
+      </div>
+      <div class="log-time">${time}</div>
+    </div>`;
+  });
+
+  if (isRunning) {
+    html += `<div class="log-entry">
+      <div style="position:relative;"><div class="log-dot dot-run"></div></div>
+      <div style="flex:1;"><div class="log-detail"><span class="spinner" style="width:12px;height:12px;border-width:1.5px;margin-right:6px;"></span> Läuft …</div></div>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
 }
 
 async function deleteArticle(id) {
