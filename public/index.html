@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMITRONIX · Datenblatt-Crawler</title>
+<link rel="stylesheet" href="https://lum-styleguide.netlify.app/lumitronix-design.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --lum-dark: #1C2530;
+    --lum-primary: #152C3E;
+    --lum-accent: #366A99;
+    --lum-teal: #3B92C7;
+    --lum-mint: #8B9BAA;
+    --lum-light: #E4E8EC;
+    --lum-cream: #F2F3F4;
+    --lum-white: #FFFFFF;
+    --lum-green: #22C55E;
+    --lum-red: #EF4444;
+    --lum-orange: #FF4D00;
+    --lum-yellow: #F59E0B;
+    --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+    --shadow: 0 2px 12px rgba(28,37,48,.10);
+    --f: 'Montserrat', sans-serif;
+  }
+  body { font-family: var(--f); font-size: 14px; font-weight: 400; color: var(--lum-dark); background: var(--lum-cream); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+
+  /* NAV */
+  .nav { display:flex; align-items:center; justify-content:space-between; background:var(--lum-primary); padding:0 32px; height:56px; position:sticky; top:0; z-index:100; }
+  .nav-logo { height:22px; opacity:.95; }
+  .nav-right { display:flex; align-items:center; gap:16px; }
+  .nav-link { color:rgba(255,255,255,.65); text-decoration:none; font-size:13px; font-weight:500; transition:color .2s; cursor:pointer; }
+  .nav-link:hover, .nav-link.active { color:#fff; }
+
+  /* PAGE */
+  .page { max-width:1200px; margin:0 auto; padding:32px 24px 80px; }
+  .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--lum-mint); margin-bottom:6px; }
+  .section-title { font-size:24px; font-weight:800; color:var(--lum-primary); margin-bottom:24px; }
+
+  /* STATS */
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px; }
+  .stat-card { background:var(--lum-white); border-radius:var(--r-lg); padding:20px 24px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; width:100%; height:3px; }
+  .sc-total::before { background:var(--lum-accent); } .sc-found::before { background:var(--lum-green); }
+  .sc-pending::before { background:var(--lum-yellow); } .sc-failed::before { background:var(--lum-red); }
+  .stat-label { font-size:12px; font-weight:500; color:var(--lum-mint); text-transform:uppercase; letter-spacing:.05em; }
+  .stat-value { font-size:32px; font-weight:800; color:var(--lum-primary); line-height:1.2; margin:4px 0 2px; }
+  .stat-sub { font-size:12px; color:var(--lum-mint); }
+  .stat-sub .up { color:var(--lum-green); font-weight:600; } .stat-sub .down { color:var(--lum-red); font-weight:600; }
+
+  /* TOOLBAR */
+  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+  .toolbar-left { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .toolbar-right { display:flex; align-items:center; gap:10px; }
+
+  /* SEARCH */
+  .search-wrap { position:relative; width:260px; }
+  .search-wrap input { width:100%; height:38px; border:1px solid var(--lum-light); border-radius:var(--r-sm); padding:0 12px 0 36px; font-family:var(--f); font-size:13px; background:var(--lum-white); color:var(--lum-dark); outline:none; transition:border-color .2s; }
+  .search-wrap input:focus { border-color:var(--lum-teal); }
+  .search-wrap .s-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:18px; color:var(--lum-mint); pointer-events:none; }
+
+  /* BUTTONS */
+  .btn { display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 18px; border:none; border-radius:var(--r-sm); font-family:var(--f); font-size:13px; font-weight:600; cursor:pointer; transition:all .18s; text-decoration:none; white-space:nowrap; }
+  .btn .mi { font-size:18px; }
+  .btn-primary { background:var(--lum-primary); color:#fff; } .btn-primary:hover { background:#1a3a52; }
+  .btn-accent { background:var(--lum-accent); color:#fff; } .btn-accent:hover { background:#2d5a85; }
+  .btn-teal { background:var(--lum-teal); color:#fff; } .btn-teal:hover { background:#2e7fb3; }
+  .btn-outline { background:transparent; color:var(--lum-primary); border:1px solid var(--lum-light); } .btn-outline:hover { border-color:var(--lum-accent); color:var(--lum-accent); }
+  .btn-ghost { background:transparent; color:var(--lum-accent); padding:0 10px; } .btn-ghost:hover { background:rgba(54,106,153,.08); }
+  .btn-sm { height:30px; padding:0 12px; font-size:12px; }
+  .btn-icon { width:38px; padding:0; justify-content:center; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* BADGES */
+  .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .badge-green { background:rgba(34,197,94,.12); color:#16a34a; }
+  .badge-yellow { background:rgba(245,158,11,.12); color:#d97706; }
+  .badge-red { background:rgba(239,68,68,.12); color:#dc2626; }
+  .badge-blue { background:rgba(59,146,199,.12); color:var(--lum-teal); }
+  .badge-dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .badge-green .badge-dot { background:#22c55e; } .badge-yellow .badge-dot { background:#f59e0b; }
+  .badge-red .badge-dot { background:#ef4444; } .badge-blue .badge-dot { background:var(--lum-teal); }
+
+  /* TABLE */
+  .table-wrap { background:var(--lum-white); border-radius:var(--r-lg); box-shadow:var(--shadow); overflow:hidden; }
+  .table-scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:var(--lum-primary); color:rgba(255,255,255,.85); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:12px 16px; text-align:left; white-space:nowrap; }
+  thead th:first-child { padding-left:20px; }
+  .col-sep { border-left:1px solid rgba(255,255,255,.12); }
+  tbody td { padding:12px 16px; border-bottom:1px solid var(--lum-light); vertical-align:middle; }
+  tbody td:first-child { padding-left:20px; }
+  tbody td.col-sep { border-left:1px solid var(--lum-light); }
+  tbody tr { cursor:pointer; transition:background .1s; } tbody tr:hover { background:rgba(59,146,199,.03); }
+  tbody tr:last-child td { border-bottom:none; }
+  .c-product { font-weight:700; color:var(--lum-primary); }
+  .c-sku { font-family:'Courier New',monospace; font-size:12px; color:var(--lum-accent); }
+  .c-muted { color:var(--lum-mint); font-size:12px; }
+  .c-link a { color:var(--lum-teal); text-decoration:none; font-weight:500; display:inline-flex; align-items:center; gap:4px; }
+  .c-link a:hover { text-decoration:underline; }
+  .c-actions { display:flex; gap:4px; }
+  .table-footer { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; font-size:12px; color:var(--lum-mint); border-top:1px solid var(--lum-light); }
+
+  /* FILTER PILLS */
+  .filter-pills { display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-pill { height:30px; padding:0 14px; border:1px solid var(--lum-light); border-radius:20px; background:var(--lum-white); font-family:var(--f); font-size:12px; font-weight:500; color:var(--lum-mint); cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px; }
+  .filter-pill:hover { border-color:var(--lum-teal); color:var(--lum-teal); }
+  .filter-pill.active { background:var(--lum-primary); color:#fff; border-color:var(--lum-primary); }
+  .pill-count { background:rgba(255,255,255,.2); padding:1px 6px; border-radius:10px; font-size:10px; }
+  .filter-pill:not(.active) .pill-count { background:var(--lum-cream); color:var(--lum-mint); }
+
+  /* MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(21,44,62,.55); backdrop-filter:blur(4px); z-index:200; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--lum-white); border-radius:var(--r-lg); box-shadow:0 8px 40px rgba(0,0,0,.2); width:560px; max-width:92vw; max-height:90vh; overflow-y:auto; animation:modalIn .22s ease; }
+  @keyframes modalIn { from{opacity:0;transform:translateY(12px) scale(.97);} to{opacity:1;transform:none;} }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid var(--lum-light); }
+  .modal-header h3 { font-size:18px; font-weight:700; color:var(--lum-primary); }
+  .modal-close { width:32px; height:32px; border:none; background:transparent; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--lum-mint); transition:all .15s; }
+  .modal-close:hover { background:var(--lum-light); color:var(--lum-primary); }
+  .modal-body { padding:20px 24px; }
+  .modal-footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding:16px 24px; border-top:1px solid var(--lum-light); }
+
+  /* FORM */
+  .fg { margin-bottom:16px; }
+  .fg label { display:block; font-size:12px; font-weight:600; color:var(--lum-primary); margin-bottom:5px; }
+  .fg input, .fg select, .fg textarea { width:100%; height:40px; border:1px solid var(--lum-light); border-radius:var(--r-sm); padding:0 12px; font-family:var(--f); font-size:13px; color:var(--lum-dark); background:var(--lum-white); outline:none; transition:border-color .2s; }
+  .fg input:focus, .fg select:focus, .fg textarea:focus { border-color:var(--lum-teal); }
+  .fg textarea { height:80px; padding:10px 12px; resize:vertical; }
+  .fg .hint { font-size:11px; color:var(--lum-mint); margin-top:4px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  /* ADVANCED TOGGLE */
+  .adv-toggle { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--lum-accent); cursor:pointer; background:none; border:none; font-family:var(--f); padding:4px 0; margin-bottom:12px; }
+  .adv-toggle .mi { font-size:16px; transition:transform .2s; }
+  .adv-toggle.open .mi { transform:rotate(180deg); }
+  .adv-section { display:none; animation:fadeIn .2s; }
+  .adv-section.open { display:block; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+  /* DETAIL PANEL */
+  .detail-bg { display:none; position:fixed; inset:0; background:rgba(21,44,62,.35); backdrop-filter:blur(2px); z-index:200; }
+  .detail-bg.open { display:block; }
+  .detail-panel { position:fixed; top:0; right:-580px; width:560px; max-width:95vw; height:100vh; background:var(--lum-white); box-shadow:-4px 0 30px rgba(0,0,0,.15); z-index:210; overflow-y:auto; transition:right .3s ease; }
+  .detail-panel.open { right:0; }
+  .detail-head { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--lum-light); position:sticky; top:0; background:var(--lum-white); z-index:5; }
+  .detail-head h3 { font-size:18px; font-weight:700; color:var(--lum-primary); }
+  .detail-body { padding:24px; }
+  .d-section { margin-bottom:24px; }
+  .d-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--lum-mint); margin-bottom:10px; }
+  .d-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--lum-cream); font-size:13px; }
+  .d-row:last-child { border-bottom:none; }
+  .d-key { color:var(--lum-mint); font-weight:500; }
+  .d-val { color:var(--lum-primary); font-weight:600; text-align:right; max-width:60%; word-break:break-all; }
+
+  /* CONFIDENCE BAR */
+  .conf-bar { height:6px; background:var(--lum-light); border-radius:3px; overflow:hidden; width:100px; display:inline-block; vertical-align:middle; margin-right:6px; }
+  .conf-fill { height:100%; border-radius:3px; transition:width .3s; }
+
+  /* TOOLTIP */
+  [data-tooltip] { position:relative; cursor:help; }
+  [data-tooltip]::after { content:attr(data-tooltip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--lum-dark); color:#fff; font-size:11px; font-weight:500; padding:5px 10px; border-radius:4px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s; z-index:50; }
+  [data-tooltip]:hover::after { opacity:1; }
+
+  /* SPINNER */
+  .spinner { width:16px; height:16px; border:2px solid var(--lum-light); border-top-color:var(--lum-teal); border-radius:50%; animation:spin .7s linear infinite; display:inline-block; vertical-align:middle; }
+  @keyframes spin { to{transform:rotate(360deg);} }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:60px 24px; color:var(--lum-mint); }
+  .empty-state .mi { font-size:48px; margin-bottom:12px; opacity:.4; }
+
+  /* ALERT */
+  .alert { padding:12px 16px; border-radius:var(--r-md); font-size:13px; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .alert-info { background:rgba(59,146,199,.08); color:var(--lum-teal); border:1px solid rgba(59,146,199,.2); }
+  .alert-warn { background:rgba(245,158,11,.08); color:#d97706; border:1px solid rgba(245,158,11,.2); }
+
+  /* SETTINGS VIEW */
+  .settings-card { background:var(--lum-white); border-radius:var(--r-lg); box-shadow:var(--shadow); padding:24px; margin-bottom:20px; }
+  .settings-card h4 { font-size:15px; font-weight:700; color:var(--lum-primary); margin-bottom:16px; }
+
+  /* FOOTER */
+  .site-footer { text-align:center; padding:40px 24px 24px; font-size:12px; color:var(--lum-mint); }
+  .site-footer img { height:30px; opacity:.5; margin-bottom:10px; }
+
+  /* RESPONSIVE */
+  @media (max-width:800px) {
+    .stats-grid { grid-template-columns:repeat(2,1fr); }
+    .toolbar { flex-direction:column; align-items:stretch; }
+    .search-wrap { width:100%; }
+    .form-row { grid-template-columns:1fr; }
+    .stat-value { font-size:24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <img src="https://lum-styleguide.netlify.app/Logo_negativ_ohne_Claim.svg" alt="LUMITRONIX" class="nav-logo">
+  <div class="nav-right">
+    <a class="nav-link active" onclick="showView('dashboard')">Dashboard</a>
+    <a class="nav-link" onclick="showView('settings')">Einstellungen</a>
+  </div>
+</nav>
+
+<!-- ═══════════ DASHBOARD VIEW ═══════════ -->
+<div class="page" id="view-dashboard">
+  <div style="margin-bottom:28px;">
+    <p class="section-label">Datenblatt-Crawler</p>
+    <h1 class="section-title" style="margin-bottom:6px;">Dashboard</h1>
+    <p style="color:var(--lum-mint);font-size:13px;">Datenblätter automatisch finden, auswerten und strukturiert ablegen.</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card sc-total"><div class="stat-label">Gesamt</div><div class="stat-value" id="s-total">–</div><div class="stat-sub">Artikel erfasst</div></div>
+    <div class="stat-card sc-found"><div class="stat-label">Gefunden</div><div class="stat-value" id="s-found">–</div><div class="stat-sub" id="s-found-rate"></div></div>
+    <div class="stat-card sc-pending"><div class="stat-label">Ausstehend</div><div class="stat-value" id="s-pending">–</div><div class="stat-sub" id="s-pending-sub"></div></div>
+    <div class="stat-card sc-failed"><div class="stat-label">Nicht gefunden</div><div class="stat-value" id="s-failed">–</div><div class="stat-sub"><span class="down">Manuelle Prüfung</span></div></div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <span class="material-symbols-outlined s-icon">search</span>
+        <input type="text" placeholder="SKU, EAN oder Hersteller …" id="search-input" oninput="renderTable()">
+      </div>
+      <div class="filter-pills" id="filters"></div>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-outline btn-sm" onclick="crawlAll()" id="btn-crawl-all" data-tooltip="Alle ausstehenden Artikel suchen">
+        <span class="material-symbols-outlined mi">refresh</span> Alle suchen
+      </button>
+      <button class="btn btn-primary" onclick="openModal('add')">
+        <span class="material-symbols-outlined mi">add</span> Artikel hinzufügen
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Hersteller</th>
+          <th>Artikelbezeichnung</th>
+          <th>SKU</th>
+          <th class="col-sep">EAN</th>
+          <th>Status</th>
+          <th>Datenblatt</th>
+          <th class="col-sep" style="width:70px;"></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <span id="table-info">Lade …</span>
+      <span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SETTINGS VIEW ═══════════ -->
+<div class="page" id="view-settings" style="display:none;">
+  <div style="margin-bottom:28px;">
+    <p class="section-label">Einstellungen</p>
+    <h1 class="section-title">Crawler-Konfiguration</h1>
+  </div>
+
+  <div class="settings-card">
+    <h4>KI-Modell</h4>
+    <div class="fg">
+      <label>Modell für Suche und Extraktion</label>
+      <select id="set-model">
+        <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (empfohlen)</option>
+        <option value="claude-opus-4-20250514">Claude Opus 4</option>
+      </select>
+      <div class="hint">Das Modell wird für die Web-Suche und die PDF-Analyse verwendet.</div>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h4>API-Schlüssel</h4>
+    <div class="alert alert-info">
+      <span class="material-symbols-outlined mi">info</span>
+      Der Anthropic API Key wird als Umgebungsvariable in Netlify hinterlegt (ANTHROPIC_API_KEY) und ist nicht im Frontend sichtbar.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ADD MODAL ═══════════ -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Artikel hinzufügen</h3>
+      <button class="modal-close" onclick="closeModal('add')"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="fg">
+        <label>Hersteller *</label>
+        <input type="text" id="f-mfr" placeholder="z. B. Nichia, Osram, Cree …">
+      </div>
+      <div class="form-row">
+        <div class="fg">
+          <label>Hersteller-SKU</label>
+          <input type="text" id="f-sku" placeholder="z. B. NCSW170F">
+          <div class="hint">Eindeutige Artikelnummer des Herstellers</div>
+        </div>
+        <div class="fg">
+          <label>EAN / GTIN</label>
+          <input type="text" id="f-ean" placeholder="z. B. 4015867123456">
+          <div class="hint">13-stellige EAN oder GTIN</div>
+        </div>
+      </div>
+      <button class="adv-toggle" id="adv-btn" onclick="toggleAdv()">
+        <span class="material-symbols-outlined mi">expand_more</span> Erweiterte Optionen
+      </button>
+      <div class="adv-section" id="adv-sec">
+        <div class="fg">
+          <label>Artikelbezeichnung (optional)</label>
+          <input type="text" id="f-name" placeholder="z. B. LED 5630 High-CRI">
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Produktkategorie</label>
+            <select id="f-cat">
+              <option value="">– Nicht festgelegt –</option>
+              <option>LED-Chip</option><option>LED-Modul</option><option>Treiber / Driver</option>
+              <option>Optik / Linse</option><option>Kühlkörper</option><option>Sonstiges</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Tags (kommagetrennt)</label>
+            <input type="text" id="f-tags" placeholder="high-cri, uv, cob …">
+          </div>
+        </div>
+        <div class="fg">
+          <label>Bemerkung</label>
+          <textarea id="f-notes" placeholder="Zusätzliche Hinweise für die Suche …"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="addArticle()" id="btn-add">
+        <span class="material-symbols-outlined mi">search</span> Hinzufügen & Suchen
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DETAIL PANEL ═══════════ -->
+<div class="detail-bg" id="detail-bg" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-head">
+    <h3 id="d-title">–</h3>
+    <button class="modal-close" onclick="closeDetail()"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <div class="detail-body" id="d-body"></div>
+</div>
+
+<!-- FOOTER -->
+<div class="site-footer">
+  <img src="https://lum-styleguide.netlify.app/Logo_positiv_ohne_Claim.svg" alt="LUMITRONIX"><br>
+  LUMITRONIX® LED-Technik GmbH · Brunnenstraße 14 · 72379 Hechingen<br>
+  Datenblatt-Crawler v1.0 · März 2026
+</div>
+
+<script>
+// ═══════════ STATE ═══════════
+let articles = [];
+let currentFilter = 'all';
+let pollTimer = null;
+
+// ═══════════ API ═══════════
+const API = '/api/articles';
+const CRAWL = '/.netlify/functions/crawl-background';
+
+async function fetchArticles() {
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    articles = data.articles || [];
+    updateStats();
+    renderFilters();
+    renderTable();
+    // Auto-poll if any pending
+    if (articles.some(a => a.crawl_status === 'searching' || a.crawl_status === 'queued')) {
+      startPoll();
+    } else {
+      stopPoll();
+    }
+  } catch (e) {
+    console.error('Fehler beim Laden:', e);
+    document.getElementById('table-info').textContent = 'Fehler beim Laden der Daten.';
+  }
+}
+
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(fetchArticles, 4000);
+}
+function stopPoll() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ═══════════ STATS ═══════════
+function updateStats() {
+  const total = articles.length;
+  const found = articles.filter(a => a.crawl_status === 'found').length;
+  const pending = articles.filter(a => a.crawl_status === 'queued' || a.crawl_status === 'searching').length;
+  const failed = articles.filter(a => a.crawl_status === 'failed').length;
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-found').textContent = found;
+  document.getElementById('s-pending').textContent = pending;
+  document.getElementById('s-failed').textContent = failed;
+  const rate = total ? Math.round(found / total * 100) : 0;
+  document.getElementById('s-found-rate').innerHTML = `<span class="up">↑ ${rate}%</span> Trefferquote`;
+  document.getElementById('s-pending-sub').innerHTML = pending > 0 ? `<span class="spinner"></span> Suche läuft` : 'Keine offenen Suchen';
+}
+
+// ═══════════ FILTERS ═══════════
+function renderFilters() {
+  const total = articles.length;
+  const found = articles.filter(a => a.crawl_status === 'found').length;
+  const pending = articles.filter(a => a.crawl_status === 'queued' || a.crawl_status === 'searching').length;
+  const failed = articles.filter(a => a.crawl_status === 'failed').length;
+  const el = document.getElementById('filters');
+  const items = [
+    { key:'all', label:'Alle', count:total },
+    { key:'found', label:'Gefunden', count:found },
+    { key:'pending', label:'Ausstehend', count:pending },
+    { key:'failed', label:'Fehlend', count:failed },
+  ];
+  el.innerHTML = items.map(i =>
+    `<button class="filter-pill${currentFilter===i.key?' active':''}" onclick="setFilter('${i.key}',this)">${i.label} <span class="pill-count">${i.count}</span></button>`
+  ).join('');
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  renderFilters();
+  renderTable();
+}
+
+// ═══════════ TABLE ═══════════
+function renderTable() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = articles.filter(a => {
+    // Filter
+    if (currentFilter === 'found' && a.crawl_status !== 'found') return false;
+    if (currentFilter === 'pending' && a.crawl_status !== 'queued' && a.crawl_status !== 'searching') return false;
+    if (currentFilter === 'failed' && a.crawl_status !== 'failed') return false;
+    // Search
+    if (q) {
+      const hay = `${a.manufacturer} ${a.product_name} ${a.manufacturer_sku} ${a.ean_gtin}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById('tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+      <span class="material-symbols-outlined mi" style="font-size:40px;">search_off</span>
+      <p>${articles.length === 0 ? 'Noch keine Artikel angelegt. Klicke auf "Artikel hinzufügen".' : 'Keine Treffer für diesen Filter.'}</p>
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(a => {
+      const badge = statusBadge(a.crawl_status);
+      const link = a.datasheet_url
+        ? `<a href="${a.datasheet_url}" target="_blank" onclick="event.stopPropagation()"><span class="material-symbols-outlined" style="font-size:15px;">description</span> PDF</a>`
+        : '<span class="c-muted">–</span>';
+      return `<tr onclick="openDetail('${a.id}')">
+        <td><span class="c-product">${esc(a.manufacturer)}</span></td>
+        <td>${esc(a.product_name || a.manufacturer_sku)}</td>
+        <td><span class="c-sku">${esc(a.manufacturer_sku || '–')}</span></td>
+        <td class="col-sep"><span class="c-muted">${esc(a.ean_gtin || '–')}</span></td>
+        <td>${badge}</td>
+        <td class="c-link">${link}</td>
+        <td class="col-sep c-actions">
+          <button class="btn btn-ghost btn-sm btn-icon" data-tooltip="Erneut suchen" onclick="event.stopPropagation();triggerCrawl('${a.id}')">
+            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('table-info').textContent = `Zeige ${filtered.length} von ${articles.length} Einträgen`;
+}
+
+function statusBadge(s) {
+  if (s === 'found') return '<span class="badge badge-green"><span class="badge-dot"></span>Gefunden</span>';
+  if (s === 'searching') return '<span class="badge badge-blue"><span class="badge-dot"></span>Suche läuft</span>';
+  if (s === 'queued') return '<span class="badge badge-yellow"><span class="badge-dot"></span>Warteschlange</span>';
+  return '<span class="badge badge-red"><span class="badge-dot"></span>Nicht gefunden</span>';
+}
+
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ═══════════ ADD ARTICLE ═══════════
+async function addArticle() {
+  const mfr = document.getElementById('f-mfr').value.trim();
+  const sku = document.getElementById('f-sku').value.trim();
+  const ean = document.getElementById('f-ean').value.trim();
+  if (!mfr || (!sku && !ean)) {
+    alert('Bitte mindestens Hersteller und SKU oder EAN angeben.');
+    return;
+  }
+  const btn = document.getElementById('btn-add');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Wird angelegt …';
+
+  try {
+    const body = {
+      manufacturer: mfr,
+      manufacturer_sku: sku,
+      ean_gtin: ean,
+      product_name: document.getElementById('f-name').value.trim(),
+      category: document.getElementById('f-cat').value,
+      tags: document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+      notes: document.getElementById('f-notes').value.trim(),
+    };
+    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const article = await res.json();
+    if (article.id) {
+      // Trigger crawl
+      triggerCrawl(article.id);
+      closeModal('add');
+      resetForm();
+      await fetchArticles();
+    }
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined mi">search</span> Hinzufügen & Suchen';
+  }
+}
+
+function resetForm() {
+  ['f-mfr','f-sku','f-ean','f-name','f-tags','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-cat').selectedIndex = 0;
+}
+
+// ═══════════ CRAWL ═══════════
+async function triggerCrawl(id) {
+  const model = document.getElementById('set-model').value;
+  try {
+    await fetch(CRAWL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ article_id: id, ai_model: model }),
+    });
+    startPoll();
+  } catch (e) {
+    console.error('Crawl-Trigger fehlgeschlagen:', e);
+  }
+}
+
+async function crawlAll() {
+  const pending = articles.filter(a => a.crawl_status !== 'found');
+  if (pending.length === 0) return;
+  for (const a of pending) {
+    await triggerCrawl(a.id);
+  }
+}
+
+// ═══════════ DETAIL PANEL ═══════════
+function openDetail(id) {
+  const a = articles.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('d-title').textContent = a.product_name || a.manufacturer_sku || '–';
+  const body = document.getElementById('d-body');
+
+  let html = `
+    <div class="d-section">
+      <div class="d-section-title">Stammdaten</div>
+      ${dRow('Hersteller', a.manufacturer)}
+      ${dRow('Hersteller-SKU', a.manufacturer_sku, true)}
+      ${dRow('EAN / GTIN', a.ean_gtin || '–')}
+      ${dRow('Kategorie', a.category || '–')}
+      ${dRow('Status', statusBadge(a.crawl_status))}
+      ${a.ai_confidence !== null && a.ai_confidence !== undefined ? dRow('KI-Konfidenz', confBar(a.ai_confidence)) : ''}
+      ${a.ai_model_used ? dRow('KI-Modell', a.ai_model_used) : ''}
+    </div>
+  `;
+
+  if (a.crawl_status === 'found') {
+    // Electrical
+    const elec = [
+      ['Vf (typ.)', a.vf_typ, 'V'], ['Vf (min)', a.vf_min, 'V'], ['Vf (max)', a.vf_max, 'V'],
+      ['If (typ.)', a.if_typ, 'mA'], ['If (max)', a.if_max, 'mA'],
+      ['Vr (max)', a.vr_max, 'V'], ['Pd (max)', a.pd_max, 'W'], ['Leistung', a.power_nominal, 'W'],
+    ].filter(r => r[1] !== null && r[1] !== undefined);
+
+    if (elec.length) {
+      html += `<div class="d-section"><div class="d-section-title">Elektrische Daten</div>${elec.map(r => dRow(r[0], r[1] + ' ' + r[2])).join('')}</div>`;
+    }
+
+    // Optical
+    const opt = [
+      ['Lichtstrom (typ.)', a.flux_typ, 'lm'], ['Lichtstrom (min)', a.flux_min, 'lm'],
+      ['Lichtausbeute', a.efficacy, 'lm/W'], ['Farbtemperatur', a.cct_k, 'K'],
+      ['CRI Ra', a.cri_ra, ''], ['CRI R9', a.cri_r9, ''], ['Abstrahlwinkel', a.viewing_angle, '°'],
+      ['Dom. Wellenlänge', a.dom_wavelength, 'nm'], ['Peak Wellenlänge', a.peak_wavelength, 'nm'],
+      ['SDCM', a.sdcm, ''],
+    ].filter(r => r[1] !== null && r[1] !== undefined);
+
+    if (opt.length) {
+      html += `<div class="d-section"><div class="d-section-title">Optische Daten</div>${opt.map(r => dRow(r[0], r[1] + (r[2] ? ' ' + r[2] : ''))).join('')}</div>`;
+    }
+
+    // Thermal/Mechanical
+    const therm = [
+      ['Package', a.package_type, ''], ['Abmessungen', formatDims(a), ''],
+      ['Rth J-S', a.rth_js, 'K/W'], ['Tj (max)', a.tj_max, '°C'], ['Ts (max)', a.ts_max, '°C'],
+    ].filter(r => r[1] !== null && r[1] !== undefined);
+
+    if (therm.length) {
+      html += `<div class="d-section"><div class="d-section-title">Thermisch / Mechanisch</div>${therm.map(r => dRow(r[0], r[1] + (r[2] ? ' ' + r[2] : ''))).join('')}</div>`;
+    }
+
+    // Datasheet link
+    if (a.datasheet_url) {
+      html += `<div class="d-section">
+        <div class="d-section-title">Datenblatt</div>
+        <a href="${a.datasheet_url}" target="_blank" class="btn btn-accent btn-sm" style="margin-bottom:8px;">
+          <span class="material-symbols-outlined mi">description</span> PDF öffnen
+        </a>
+        ${a.crawled_at ? `<p style="font-size:12px;color:var(--lum-mint);margin-top:8px;">Gefunden am ${new Date(a.crawled_at).toLocaleDateString('de-DE')}</p>` : ''}
+      </div>`;
+    }
+  } else if (a.crawl_status === 'searching' || a.crawl_status === 'queued') {
+    html += `<div class="d-section" style="text-align:center;padding:32px 0;">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:12px;"></div>
+      <p style="color:var(--lum-mint);font-size:13px;">Suche läuft … Datenblatt wird gesucht.</p>
+    </div>`;
+  } else if (a.crawl_status === 'failed') {
+    html += `<div class="d-section" style="text-align:center;padding:32px 0;">
+      <span class="material-symbols-outlined" style="font-size:40px;color:var(--lum-red);opacity:.5;margin-bottom:8px;">error_outline</span>
+      <p style="color:var(--lum-mint);font-size:13px;margin-bottom:8px;">Kein Datenblatt gefunden.</p>
+      ${a.error_log ? `<p style="font-size:11px;color:var(--lum-mint);background:var(--lum-cream);padding:8px 12px;border-radius:6px;text-align:left;">${esc(a.error_log)}</p>` : ''}
+      <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="triggerCrawl('${a.id}')">
+        <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Erneut suchen
+      </button>
+    </div>`;
+  }
+
+  // Delete button
+  html += `<div style="border-top:1px solid var(--lum-light);padding-top:16px;margin-top:24px;">
+    <button class="btn btn-ghost btn-sm" style="color:var(--lum-red);" onclick="deleteArticle('${a.id}')">
+      <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Artikel löschen
+    </button>
+  </div>`;
+
+  body.innerHTML = html;
+  document.getElementById('detail-bg').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-bg').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+function dRow(key, val, mono) {
+  return `<div class="d-row"><span class="d-key">${key}</span><span class="d-val"${mono ? ' style="font-family:monospace;"' : ''}>${val ?? '–'}</span></div>`;
+}
+
+function confBar(v) {
+  const pct = Math.round(v * 100);
+  const color = pct >= 80 ? 'var(--lum-green)' : pct >= 50 ? 'var(--lum-yellow)' : 'var(--lum-red)';
+  return `<span class="conf-bar"><span class="conf-fill" style="width:${pct}%;background:${color};"></span></span>${pct}%`;
+}
+
+function formatDims(a) {
+  if (!a.dim_l_mm && !a.dim_w_mm) return null;
+  const parts = [a.dim_l_mm, a.dim_w_mm, a.dim_h_mm].filter(v => v !== null);
+  return parts.join(' × ') + ' mm';
+}
+
+async function deleteArticle(id) {
+  if (!confirm('Artikel wirklich löschen?')) return;
+  await fetch(API + '?id=' + id, { method: 'DELETE' });
+  closeDetail();
+  await fetchArticles();
+}
+
+// ═══════════ UI HELPERS ═══════════
+function openModal(name) { document.getElementById('modal-' + name).classList.add('open'); }
+function closeModal(name) { document.getElementById('modal-' + name).classList.remove('open'); }
+
+function toggleAdv() {
+  document.getElementById('adv-btn').classList.toggle('open');
+  document.getElementById('adv-sec').classList.toggle('open');
+}
+
+function showView(v) {
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('view-dashboard').style.display = v === 'dashboard' ? '' : 'none';
+  document.getElementById('view-settings').style.display = v === 'settings' ? '' : 'none';
+}
+
+// ═══════════ INIT ═══════════
+fetchArticles();
+</script>
+</body>
+</html>
