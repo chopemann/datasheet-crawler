@@ -154,7 +154,7 @@ export default async (req: Request, context: Context) => {
   await dsStore.set(articleId, pdfBlob);
   article.datasheet_path = `datasheets/${articleId}`;
 
-  await log(store, articleId, article, "extracting", "KI analysiert das Datenblatt …");
+  await log(store, articleId, article, "extracting", "KI analysiert das Datenblatt …"); 
 
   const pdfBase64 = bufferToBase64(dlResult.buffer);
   const extractResult = await extractFromPdf(pdfBase64, article, apiKey, model);
