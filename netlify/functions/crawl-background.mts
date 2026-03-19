@@ -9,7 +9,20 @@ function getDatasheetStore() {
 }
 
 // -------------------------------------------------------------------
-// 1. SEARCH: Ask AI to find the datasheet URL
+// PROGRESS LOG: writes live status into the article for the frontend
+// -------------------------------------------------------------------
+async function log(store: any, articleId: string, article: any, step: string, detail: string, status?: string) {
+  const entry = { time: new Date().toISOString(), step, detail };
+  if (!article.crawl_log) article.crawl_log = [];
+  article.crawl_log.push(entry);
+  if (status) article.crawl_status = status;
+  article.updated_at = new Date().toISOString();
+  await store.setJSON(articleId, article);
+  console.log(`[Crawl] ${step}: ${detail}`);
+}
+
+// -------------------------------------------------------------------
+// 1. SEARCH
 // -------------------------------------------------------------------
 async function searchDatasheet(article: any, apiKey: string, model: string): Promise<{ url: string | null; error: string | null }> {
   const searchTerms = [article.manufacturer, article.manufacturer_sku, article.ean_gtin].filter(Boolean).join(" ");
@@ -31,281 +44,147 @@ Anweisungen:
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 1024,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{ role: "user", content: prompt }],
-      }),
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 1024, tools: [{ type: "web_search_20250305", name: "web_search" }], messages: [{ role: "user", content: prompt }] }),
     });
-
-    if (!response.ok) {
-      const err = await response.text();
-      return { url: null, error: `API-Fehler ${response.status}: ${err}` };
-    }
-
+    if (!response.ok) { const err = await response.text(); return { url: null, error: `API-Fehler ${response.status}: ${err.slice(0, 300)}` }; }
     const data = await response.json();
-
-    // Extract text from response (may have multiple content blocks due to tool use)
     const textBlocks = data.content?.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n") || "";
-
-    // Try to parse JSON from response
     const jsonMatch = textBlocks.match(/\{[\s\S]*?"datasheet_url"[\s\S]*?\}/);
-    if (jsonMatch) {
-      try {
-        const result = JSON.parse(jsonMatch[0]);
-        return { url: result.datasheet_url, error: null };
-      } catch {
-        return { url: null, error: "JSON-Parsing fehlgeschlagen: " + textBlocks.slice(0, 200) };
-      }
-    }
-
-    // Fallback: look for any URL in the response
+    if (jsonMatch) { try { return { url: JSON.parse(jsonMatch[0]).datasheet_url, error: null }; } catch { return { url: null, error: "JSON-Parsing fehlgeschlagen: " + textBlocks.slice(0, 200) }; } }
     const urlMatch = textBlocks.match(/https?:\/\/[^\s"'<>]+\.pdf[^\s"'<>]*/i);
-    if (urlMatch) {
-      return { url: urlMatch[0], error: null };
-    }
-
+    if (urlMatch) return { url: urlMatch[0], error: null };
     return { url: null, error: "Kein Datenblatt gefunden. KI-Antwort: " + textBlocks.slice(0, 300) };
-  } catch (e: any) {
-    return { url: null, error: `Suche fehlgeschlagen: ${e.message}` };
-  }
+  } catch (e: any) { return { url: null, error: `Suche fehlgeschlagen: ${e.message}` }; }
 }
 
 // -------------------------------------------------------------------
-// 2. DOWNLOAD: Fetch the PDF
+// 2. DOWNLOAD
 // -------------------------------------------------------------------
 async function downloadPdf(url: string): Promise<{ buffer: ArrayBuffer | null; error: string | null }> {
   try {
-    const resp = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 LUMITRONIX-Crawler/1.0" },
-      redirect: "follow",
-    });
+    const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 LUMITRONIX-Crawler/1.0" }, redirect: "follow" });
     if (!resp.ok) return { buffer: null, error: `Download fehlgeschlagen: HTTP ${resp.status}` };
-    const contentType = resp.headers.get("content-type") || "";
-    // Accept PDF or octet-stream
-    if (!contentType.includes("pdf") && !contentType.includes("octet-stream") && !url.toLowerCase().includes(".pdf")) {
-      return { buffer: null, error: `Kein PDF: Content-Type ist ${contentType}` };
-    }
+    const ct = resp.headers.get("content-type") || "";
+    if (!ct.includes("pdf") && !ct.includes("octet-stream") && !url.toLowerCase().includes(".pdf")) return { buffer: null, error: `Kein PDF: Content-Type ist ${ct}` };
     const buffer = await resp.arrayBuffer();
     if (buffer.byteLength < 500) return { buffer: null, error: "Datei zu klein, vermutlich kein gültiges PDF" };
     return { buffer, error: null };
-  } catch (e: any) {
-    return { buffer: null, error: `Download-Fehler: ${e.message}` };
-  }
+  } catch (e: any) { return { buffer: null, error: `Download-Fehler: ${e.message}` }; }
 }
 
 // -------------------------------------------------------------------
-// 3. EXTRACT: Send PDF to AI and extract structured data
+// 3. EXTRACT
 // -------------------------------------------------------------------
 async function extractFromPdf(pdfBase64: string, article: any, apiKey: string, model: string): Promise<{ specs: any; confidence: number; error: string | null }> {
   const prompt = `Du bist ein LED-Datenblatt-Analysator. Lies das angehängte Datenblatt und extrahiere alle technischen Spezifikationen.
-
 Gesucht wird: ${article.manufacturer} ${article.manufacturer_sku || article.product_name}
-
 Extrahiere folgende Werte und gib sie als JSON zurück. Nutze NULL wenn ein Wert nicht im Datenblatt steht. Einheiten NICHT in die Werte schreiben, nur die Zahl.
-
-{
-  "product_name": "string – voller Produktname aus dem Datenblatt",
-  "product_status": "Active|Preview|NRND|EOL|Obsolete oder null",
-  "vf_typ": "Forward Voltage typisch in V",
-  "vf_min": "Forward Voltage min in V",
-  "vf_max": "Forward Voltage max in V",
-  "if_typ": "Forward Current typisch in mA",
-  "if_max": "Forward Current absolut max in mA",
-  "vr_max": "Reverse Voltage max in V",
-  "pd_max": "Max. Verlustleistung in W",
-  "power_nominal": "Nennleistung in W",
-  "flux_typ": "Lichtstrom typisch in lm",
-  "flux_min": "Lichtstrom Minimum in lm",
-  "efficacy": "Lichtausbeute in lm/W",
-  "cct_k": "Farbtemperatur in Kelvin (ganzzahlig)",
-  "cri_ra": "CRI Ra",
-  "cri_r9": "R9-Wert",
-  "viewing_angle": "Abstrahlwinkel 2θ½ in Grad",
-  "dom_wavelength": "Dominante Wellenlänge in nm",
-  "peak_wavelength": "Peak-Wellenlänge in nm",
-  "sdcm": "MacAdam-Stufe",
-  "package_type": "Package-Bezeichnung z.B. 5630, 3030, COB",
-  "dim_l_mm": "Länge in mm",
-  "dim_w_mm": "Breite in mm",
-  "dim_h_mm": "Höhe in mm",
-  "rth_js": "Thermischer Widerstand Junction-Solder in K/W",
-  "tj_max": "Max. Junction-Temperatur in °C",
-  "ts_max": "Max. Lötpunkt-Temperatur in °C",
-  "weight_g": "Gewicht in g",
-  "confidence": "0.0-1.0 – wie sicher bist du, dass dies das richtige Datenblatt ist?"
-}
-
+{"product_name":"string","product_status":"Active|Preview|NRND|EOL|Obsolete oder null","vf_typ":"V","vf_min":"V","vf_max":"V","if_typ":"mA","if_max":"mA","vr_max":"V","pd_max":"W","power_nominal":"W","flux_typ":"lm","flux_min":"lm","efficacy":"lm/W","cct_k":"K ganzzahlig","cri_ra":"","cri_r9":"","viewing_angle":"°","dom_wavelength":"nm","peak_wavelength":"nm","sdcm":"","package_type":"z.B. 5630","dim_l_mm":"mm","dim_w_mm":"mm","dim_h_mm":"mm","rth_js":"K/W","tj_max":"°C","ts_max":"°C","weight_g":"g","confidence":"0.0-1.0"}
 Antworte NUR mit dem JSON-Objekt. Keine Erklärung.`;
-
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 2048,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "document",
-              source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
-            },
-            { type: "text", text: prompt },
-          ],
-        }],
-      }),
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } }, { type: "text", text: prompt }] }] }),
     });
-
-    if (!response.ok) {
-      const err = await response.text();
-      return { specs: {}, confidence: 0, error: `Extraktions-API-Fehler ${response.status}: ${err}` };
-    }
-
+    if (!response.ok) { const err = await response.text(); return { specs: {}, confidence: 0, error: `API-Fehler ${response.status}: ${err.slice(0, 300)}` }; }
     const data = await response.json();
     const text = data.content?.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n") || "";
-
-    // Parse JSON
     const jsonMatch = text.match(/\{[\s\S]+\}/);
-    if (!jsonMatch) {
-      return { specs: {}, confidence: 0, error: "Keine JSON-Antwort: " + text.slice(0, 200) };
-    }
-
-    const cleaned = jsonMatch[0].replace(/```json|```/g, "").trim();
-    const specs = JSON.parse(cleaned);
+    if (!jsonMatch) return { specs: {}, confidence: 0, error: "Keine JSON-Antwort: " + text.slice(0, 200) };
+    const specs = JSON.parse(jsonMatch[0].replace(/```json|```/g, "").trim());
     const confidence = typeof specs.confidence === "number" ? specs.confidence : 0.5;
     delete specs.confidence;
-
     return { specs, confidence, error: null };
-  } catch (e: any) {
-    return { specs: {}, confidence: 0, error: `Extraktion fehlgeschlagen: ${e.message}` };
-  }
+  } catch (e: any) { return { specs: {}, confidence: 0, error: `Extraktion fehlgeschlagen: ${e.message}` }; }
 }
 
 // -------------------------------------------------------------------
-// MAIN: Background function entry point
+// MAIN
 // -------------------------------------------------------------------
 export default async (req: Request, context: Context) => {
   const body = await req.json();
   const articleId = body.article_id;
-  if (!articleId) return; // Background functions return 202 anyway
+  if (!articleId) return;
 
   const apiKey = Netlify.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY nicht konfiguriert");
-    return;
-  }
+  if (!apiKey) { console.error("ANTHROPIC_API_KEY nicht konfiguriert"); return; }
 
-  // Model selection: default to Claude Sonnet
   const model = body.ai_model || "claude-sonnet-4-20250514";
-
   const store = getArticleStore();
   const dsStore = getDatasheetStore();
 
-  // Load article
   const article = await store.get(articleId, { type: "json" });
-  if (!article) {
-    console.error("Artikel nicht gefunden:", articleId);
-    return;
-  }
+  if (!article) { console.error("Artikel nicht gefunden:", articleId); return; }
 
-  // Update status to "searching"
-  article.crawl_status = "searching";
-  article.ai_model_used = model;
-  article.updated_at = new Date().toISOString();
-  await store.setJSON(articleId, article);
+  article.crawl_log = [];
+  await log(store, articleId, article, "start", `Crawler gestartet · Modell: ${model}`, "searching");
+  await log(store, articleId, article, "api_connect", "Verbinde mit Anthropic API und starte Web-Suche …");
 
-  // === STEP 1: Search for datasheet ===
-  console.log(`[Crawl] Suche Datenblatt für ${article.manufacturer} ${article.manufacturer_sku}`);
   const searchResult = await searchDatasheet(article, apiKey, model);
 
   if (!searchResult.url) {
-    article.crawl_status = "failed";
+    await log(store, articleId, article, "search_failed", searchResult.error || "Kein Datenblatt gefunden", "failed");
     article.retry_count = (article.retry_count || 0) + 1;
     article.error_log = searchResult.error || "Kein Datenblatt gefunden";
     article.crawled_at = new Date().toISOString();
-    article.updated_at = new Date().toISOString();
     await store.setJSON(articleId, article);
-    console.log(`[Crawl] Fehlgeschlagen: ${searchResult.error}`);
     return;
   }
 
-  console.log(`[Crawl] URL gefunden: ${searchResult.url}`);
+  await log(store, articleId, article, "url_found", `Datenblatt gefunden: ${searchResult.url}`);
   article.datasheet_url = searchResult.url;
-  await store.setJSON(articleId, article);
 
-  // === STEP 2: Download PDF ===
+  await log(store, articleId, article, "downloading", "PDF wird heruntergeladen …");
   const dlResult = await downloadPdf(searchResult.url);
 
   if (!dlResult.buffer) {
-    // URL found but PDF download failed – still save URL
-    article.crawl_status = "found";
-    article.ai_confidence = 0.3;
-    article.error_log = dlResult.error || "PDF-Download fehlgeschlagen";
-    article.crawled_at = new Date().toISOString();
-    article.updated_at = new Date().toISOString();
+    await log(store, articleId, article, "download_failed", dlResult.error || "PDF-Download fehlgeschlagen");
+    article.crawl_status = "found"; article.ai_confidence = 0.3;
+    article.error_log = dlResult.error; article.crawled_at = new Date().toISOString();
     await store.setJSON(articleId, article);
-    console.log(`[Crawl] Download fehlgeschlagen: ${dlResult.error}`);
     return;
   }
 
-  // Save PDF to blob storage
+  const sizeKB = Math.round(dlResult.buffer.byteLength / 1024);
+  await log(store, articleId, article, "downloaded", `PDF heruntergeladen (${sizeKB} KB) und gespeichert`);
+
   const pdfBlob = new Blob([dlResult.buffer], { type: "application/pdf" });
   await dsStore.set(articleId, pdfBlob);
   article.datasheet_path = `datasheets/${articleId}`;
-  console.log(`[Crawl] PDF gespeichert (${Math.round(dlResult.buffer.byteLength / 1024)} KB)`);
 
-  // === STEP 3: Extract data from PDF ===
+  await log(store, articleId, article, "extracting", "KI analysiert das Datenblatt …");
+
   const pdfBase64 = bufferToBase64(dlResult.buffer);
   const extractResult = await extractFromPdf(pdfBase64, article, apiKey, model);
 
-  if (extractResult.error && !extractResult.specs) {
-    article.crawl_status = "found";
-    article.ai_confidence = 0.3;
-    article.error_log = extractResult.error;
+  if (extractResult.error && Object.keys(extractResult.specs).length === 0) {
+    await log(store, articleId, article, "extract_failed", extractResult.error || "Extraktion fehlgeschlagen");
+    article.crawl_status = "found"; article.ai_confidence = 0.3; article.error_log = extractResult.error;
   } else {
-    // Merge extracted specs into article
     const specs = extractResult.specs;
+    let fieldCount = 0;
     for (const [key, val] of Object.entries(specs)) {
       if (val !== null && val !== undefined && val !== "" && key in article) {
-        // Convert numeric strings to numbers
         const numVal = typeof val === "string" ? parseFloat(val) : val;
-        if (typeof article[key] === "object" || article[key] === null) {
-          article[key] = isNaN(numVal as number) ? val : numVal;
-        }
+        if (typeof article[key] === "object" || article[key] === null) { article[key] = isNaN(numVal as number) ? val : numVal; fieldCount++; }
       }
     }
-    article.crawl_status = "found";
-    article.ai_confidence = extractResult.confidence;
-    article.error_log = extractResult.error || null;
+    article.crawl_status = "found"; article.ai_confidence = extractResult.confidence; article.error_log = extractResult.error || null;
+    await log(store, articleId, article, "extracted", `${fieldCount} Felder extrahiert · Konfidenz: ${Math.round(extractResult.confidence * 100)}%`);
   }
 
   article.crawled_at = new Date().toISOString();
-  article.updated_at = new Date().toISOString();
-  await store.setJSON(articleId, article);
-  console.log(`[Crawl] Fertig! Konfidenz: ${article.ai_confidence}`);
+  article.ai_model_used = model;
+  await log(store, articleId, article, "done", "Fertig!", "found");
 };
 
-export const config: Config = {
-  path: "/api/crawl",
-};
+export const config: Config = { path: "/api/crawl" };
 
 function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
