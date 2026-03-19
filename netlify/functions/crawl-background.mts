@@ -26,20 +26,26 @@ async function log(store: any, articleId: string, article: any, step: string, de
 // -------------------------------------------------------------------
 async function searchDatasheet(article: any, apiKey: string, model: string): Promise<{ url: string | null; error: string | null }> {
   const searchTerms = [article.manufacturer, article.manufacturer_sku, article.ean_gtin].filter(Boolean).join(" ");
-  const prompt = `Du bist ein technischer Recherche-Assistent. Finde das offizielle Datenblatt (PDF) für folgendes Produkt:
+  const prompt = `You are a technical research assistant specialized in finding LED component datasheets.
 
-Hersteller: ${article.manufacturer}
-${article.manufacturer_sku ? `Hersteller-SKU: ${article.manufacturer_sku}` : ""}
+Find the OFFICIAL ENGLISH datasheet (PDF) for this product:
+
+Manufacturer: ${article.manufacturer}
+${article.manufacturer_sku ? `Manufacturer SKU: ${article.manufacturer_sku}` : ""}
 ${article.ean_gtin ? `EAN/GTIN: ${article.ean_gtin}` : ""}
-${article.product_name ? `Produktname: ${article.product_name}` : ""}
+${article.product_name ? `Product name: ${article.product_name}` : ""}
 
-Anweisungen:
-1. Suche nach "${searchTerms} datasheet PDF"
-2. Bevorzuge die offizielle Herstellerseite
-3. Alternativ: Distributor-Seiten (Mouser, Digi-Key, Farnell, RS Components)
-4. Die URL muss direkt auf eine PDF-Datei zeigen oder eine Seite sein, die das Datenblatt enthält
-5. Antworte NUR mit einem JSON-Objekt im Format: {"datasheet_url": "https://...", "source": "manufacturer|distributor|other", "confidence": 0.0-1.0}
-6. Wenn du kein Datenblatt findest: {"datasheet_url": null, "source": null, "confidence": 0, "reason": "..."}`;
+STRICT RULES – follow in this order:
+1. Search for "${searchTerms} datasheet PDF english"
+2. The datasheet MUST be in ENGLISH. Never return a Japanese, Chinese, Korean or other non-English datasheet.
+3. STRONGLY prefer the official manufacturer website (e.g. nichia.co.jp, osram.com, cree-led.com, lumileds.com, samsung.com/led, seoulsemicon.com)
+4. Only if not available from the manufacturer: use Mouser, Digi-Key, Farnell, RS Components, or Octopart
+5. The URL should point directly to a PDF file or a page that contains the English datasheet download
+6. Verify the SKU/part number appears in the URL or page to ensure it's the correct product
+
+Respond ONLY with a JSON object:
+{"datasheet_url": "https://...", "source": "manufacturer|distributor|other", "confidence": 0.0-1.0}
+If not found: {"datasheet_url": null, "source": null, "confidence": 0, "reason": "..."}`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -77,16 +83,98 @@ async function downloadPdf(url: string): Promise<{ buffer: ArrayBuffer | null; e
 // 3. EXTRACT
 // -------------------------------------------------------------------
 async function extractFromPdf(pdfBase64: string, article: any, apiKey: string, model: string): Promise<{ specs: any; confidence: number; error: string | null }> {
-  const prompt = `Du bist ein LED-Datenblatt-Analysator. Lies das angehängte Datenblatt und extrahiere alle technischen Spezifikationen.
-Gesucht wird: ${article.manufacturer} ${article.manufacturer_sku || article.product_name}
-Extrahiere folgende Werte und gib sie als JSON zurück. Nutze NULL wenn ein Wert nicht im Datenblatt steht. Einheiten NICHT in die Werte schreiben, nur die Zahl.
-{"product_name":"string","product_status":"Active|Preview|NRND|EOL|Obsolete oder null","vf_typ":"V","vf_min":"V","vf_max":"V","if_typ":"mA","if_max":"mA","vr_max":"V","pd_max":"W","power_nominal":"W","flux_typ":"lm","flux_min":"lm","efficacy":"lm/W","cct_k":"K ganzzahlig","cri_ra":"","cri_r9":"","viewing_angle":"°","dom_wavelength":"nm","peak_wavelength":"nm","sdcm":"","package_type":"z.B. 5630","dim_l_mm":"mm","dim_w_mm":"mm","dim_h_mm":"mm","rth_js":"K/W","tj_max":"°C","ts_max":"°C","weight_g":"g","confidence":"0.0-1.0"}
-Antworte NUR mit dem JSON-Objekt. Keine Erklärung.`;
+  const prompt = `You are an expert LED/electronics datasheet analyzer. Read the attached datasheet carefully and extract ALL technical specifications.
+
+Product: ${article.manufacturer} ${article.manufacturer_sku || article.product_name}
+
+INSTRUCTIONS:
+- Return ONLY a JSON object with the fields below
+- Use null for values not found in the datasheet
+- Numbers only – do NOT include units in values (e.g. write 3.05, not "3.05 V")
+- For ranges, extract min/typ/max separately
+- Read ALL tables, graphs and footnotes – don't skip anything
+- If multiple test conditions exist, prefer values at If=65mA or the "typical" test condition
+- For CCT: extract all available CCT bins if the product comes in multiple color temperatures
+
+{
+  "product_name": "Full official product name from the datasheet",
+  "product_series": "Product series/family name if mentioned",
+  "product_status": "Active | Preview | NRND | EOL | Obsolete | null",
+  "description": "One-line product description from the datasheet",
+
+  "vf_typ": "Forward voltage typical [V]",
+  "vf_min": "Forward voltage minimum [V]",
+  "vf_max": "Forward voltage maximum [V]",
+  "if_typ": "Forward current typical/test [mA]",
+  "if_max": "Absolute maximum forward current [mA]",
+  "if_pulse_max": "Maximum pulse current [mA]",
+  "vr_max": "Maximum reverse voltage [V]",
+  "pd_max": "Maximum power dissipation [W]",
+  "power_nominal": "Nominal power (Vf × If) [W]",
+  "esd_hbm": "ESD rating HBM [V]",
+
+  "flux_typ": "Luminous flux typical [lm]",
+  "flux_min": "Luminous flux minimum [lm]",
+  "flux_max": "Luminous flux maximum [lm]",
+  "flux_test_current_ma": "Test current for flux measurement [mA]",
+  "efficacy": "Luminous efficacy [lm/W]",
+  "cct_k": "Correlated color temperature [K] (integer)",
+  "cct_options": "Available CCT options as comma-separated string, e.g. '2700,3000,3500,4000,5000,6500'",
+  "cri_ra": "CRI Ra value",
+  "cri_r9": "R9 value",
+  "cri_min": "Minimum CRI (from binning)",
+  "viewing_angle": "Half-intensity angle 2θ½ [degrees]",
+  "dom_wavelength": "Dominant wavelength [nm]",
+  "dom_wavelength_min": "Dominant wavelength min [nm]",
+  "dom_wavelength_max": "Dominant wavelength max [nm]",
+  "peak_wavelength": "Peak wavelength [nm]",
+  "sdcm": "MacAdam ellipse steps (SDCM)",
+  "spectrum_type": "e.g. Phosphor-converted white, Direct color, Full spectrum",
+
+  "package_type": "Package designation, e.g. 5630, 3030, 2835, COB",
+  "package_standard": "e.g. PLCC-2, PLCC-4, Chip-on-Board",
+  "dim_l_mm": "Length [mm]",
+  "dim_w_mm": "Width [mm]",
+  "dim_h_mm": "Height [mm]",
+  "lens_type": "Lens material/type, e.g. Silicone, Glass, Molded",
+  "lead_type": "Lead/terminal type, e.g. SMD, Through-hole, Solder pad",
+  "weight_g": "Weight [g]",
+  "marking": "Top marking on the component",
+
+  "rth_js": "Thermal resistance junction-solder [K/W]",
+  "rth_ja": "Thermal resistance junction-ambient [K/W]",
+  "tj_max": "Maximum junction temperature [°C]",
+  "tj_typ": "Typical operating junction temperature [°C]",
+  "ts_max": "Maximum solder point temperature [°C]",
+  "ta_range_min": "Operating ambient temperature min [°C]",
+  "ta_range_max": "Operating ambient temperature max [°C]",
+  "storage_temp_min": "Storage temperature min [°C]",
+  "storage_temp_max": "Storage temperature max [°C]",
+  "reflow_profile": "Reflow soldering profile, e.g. 'JEDEC J-STD-020' or peak temp",
+  "moisture_sensitivity": "MSL level, e.g. 'MSL 3'",
+
+  "lifetime_l70_hours": "L70 lifetime at reference conditions [hours]",
+  "lifetime_test_temp_c": "Temperature for L70 test [°C]",
+  "lifetime_test_current_ma": "Current for L70 test [mA]",
+
+  "rohs_compliant": "true/false/null",
+  "reach_compliant": "true/false/null",
+  "aec_q102": "AEC-Q102 qualified: true/false/null",
+  "ul_listed": "UL listed: true/false/null",
+
+  "datasheet_revision": "Datasheet version/revision if shown",
+  "datasheet_date": "Datasheet date if shown",
+
+  "confidence": "0.0-1.0 – how confident are you this is the correct datasheet for the requested product?"
+}
+
+Respond with ONLY the JSON object. No explanation, no markdown fences.`;
+
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } }, { type: "text", text: prompt }] }] }),
+      body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } }, { type: "text", text: prompt }] }] }),
     });
     if (!response.ok) { const err = await response.text(); return { specs: {}, confidence: 0, error: `API-Fehler ${response.status}: ${err.slice(0, 300)}` }; }
     const data = await response.json();
@@ -154,7 +242,7 @@ export default async (req: Request, context: Context) => {
   await dsStore.set(articleId, pdfBlob);
   article.datasheet_path = `datasheets/${articleId}`;
 
-  await log(store, articleId, article, "extracting", "KI analysiert das Datenblatt …"); 
+  await log(store, articleId, article, "extracting", "KI analysiert das Datenblatt …");
 
   const pdfBase64 = bufferToBase64(dlResult.buffer);
   const extractResult = await extractFromPdf(pdfBase64, article, apiKey, model);
@@ -166,9 +254,16 @@ export default async (req: Request, context: Context) => {
     const specs = extractResult.specs;
     let fieldCount = 0;
     for (const [key, val] of Object.entries(specs)) {
-      if (val !== null && val !== undefined && val !== "" && key in article) {
-        const numVal = typeof val === "string" ? parseFloat(val) : val;
-        if (typeof article[key] === "object" || article[key] === null) { article[key] = isNaN(numVal as number) ? val : numVal; fieldCount++; }
+      if (val !== null && val !== undefined && val !== "") {
+        // Convert numeric strings to numbers where appropriate
+        if (typeof val === "string" && /^-?\d+\.?\d*$/.test(val.trim())) {
+          article[key] = parseFloat(val);
+        } else if (typeof val === "boolean" || typeof val === "number") {
+          article[key] = val;
+        } else {
+          article[key] = val;
+        }
+        fieldCount++;
       }
     }
     article.crawl_status = "found"; article.ai_confidence = extractResult.confidence; article.error_log = extractResult.error || null;
