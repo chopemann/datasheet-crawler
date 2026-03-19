@@ -1,4 +1,4 @@
-import type { Context, Config } from "@netlify/functions";
+import type { Context } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 
 function getArticleStore() {
@@ -180,7 +180,7 @@ export default async (req: Request, context: Context) => {
   await log(store, articleId, article, "done", "Fertig!", "found");
 };
 
-export const config: Config = { path: "/api/crawl" };
+// Background functions must NOT have a custom path - the -background suffix handles routing
 
 function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
