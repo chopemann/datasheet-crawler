@@ -166,9 +166,43 @@
   [data-tooltip]::after { content:attr(data-tooltip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--lum-dark); color:#fff; font-size:11px; font-weight:500; padding:5px 10px; border-radius:4px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s; z-index:50; }
   [data-tooltip]:hover::after { opacity:1; }
 
-  /* SPINNER */
+  /* LUMITRONIX SUN LOADER */
+  .lum-loader { display:inline-flex; flex-direction:column; align-items:center; gap:12px; }
+  .lum-loader-sun { width:40px; height:40px; color:var(--lum-teal); }
+  .lum-loader-sm .lum-loader-sun { width:24px; height:24px; }
+  .lum-loader-lg .lum-loader-sun { width:64px; height:64px; }
+  .lum-loader-sun path { animation:lum-ray-dim 2s ease-in-out infinite; }
+  .lum-loader-sun .r0{animation-delay:0s;} .lum-loader-sun .r1{animation-delay:.2s;} .lum-loader-sun .r2{animation-delay:.4s;}
+  .lum-loader-sun .r3{animation-delay:.6s;} .lum-loader-sun .r4{animation-delay:.8s;} .lum-loader-sun .r5{animation-delay:1s;}
+  .lum-loader-sun .r6{animation-delay:1.2s;} .lum-loader-sun .r7{animation-delay:1.4s;} .lum-loader-sun .r8{animation-delay:1.6s;} .lum-loader-sun .r9{animation-delay:1.8s;}
+  @keyframes lum-ray-dim { 0%,100%{opacity:1;} 15%{opacity:.1;} 30%{opacity:1;} }
+  .lum-loader-text { font-size:12px; font-weight:600; color:var(--lum-mint); letter-spacing:.3px; }
+  .lum-loader-inline { display:inline-flex; align-items:center; gap:8px; flex-direction:row; }
+  .lum-loader-inline .lum-loader-sun { width:18px; height:18px; }
   .spinner { width:16px; height:16px; border:2px solid var(--lum-light); border-top-color:var(--lum-teal); border-radius:50%; animation:spin .7s linear infinite; display:inline-block; vertical-align:middle; }
   @keyframes spin { to{transform:rotate(360deg);} }
+
+  /* RICH TOOLTIP (hover card on table rows) */
+  .rich-tip { position:relative; }
+  .rich-card {
+    display:none; position:absolute; z-index:150; top:100%; left:20px;
+    background:var(--lum-white); border-radius:var(--r-lg); box-shadow:0 8px 32px rgba(21,44,62,.18);
+    border:1px solid var(--lum-light); width:340px; padding:0; pointer-events:none;
+    animation:tipIn .15s ease;
+  }
+  @keyframes tipIn { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:none;} }
+  .rich-tip:hover .rich-card { display:block; }
+  .rc-header { background:var(--lum-primary); color:#fff; padding:14px 18px; border-radius:var(--r-lg) var(--r-lg) 0 0; }
+  .rc-header h4 { font-size:14px; font-weight:700; margin:0 0 2px; }
+  .rc-header span { font-size:11px; opacity:.7; }
+  .rc-body { padding:12px 18px; }
+  .rc-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 16px; }
+  .rc-item { padding:5px 0; border-bottom:1px solid var(--lum-cream); }
+  .rc-item:nth-last-child(-n+2) { border-bottom:none; }
+  .rc-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--lum-mint); }
+  .rc-val { font-size:13px; font-weight:700; color:var(--lum-primary); }
+  .rc-footer { padding:8px 18px 12px; font-size:11px; color:var(--lum-mint); border-top:1px solid var(--lum-light); }
+
 
   /* EMPTY */
   .empty-state { text-align:center; padding:60px 24px; color:var(--lum-mint); }
@@ -440,7 +474,7 @@ function updateStats() {
   document.getElementById('s-failed').textContent = failed;
   const rate = total ? Math.round(found / total * 100) : 0;
   document.getElementById('s-found-rate').innerHTML = `<span class="up">↑ ${rate}%</span> Trefferquote`;
-  document.getElementById('s-pending-sub').innerHTML = pending > 0 ? `<span class="spinner"></span> Suche läuft` : 'Keine offenen Suchen';
+  document.getElementById('s-pending-sub').innerHTML = pending > 0 ? `<div class="lum-loader-inline" style="color:var(--lum-teal);"><svg class="lum-loader-sun" viewBox="0 0 47 48.5" fill="currentColor" style="width:14px;height:14px;"><g transform="translate(-8.14,-12.67)"><path class="r0" d="M32.46,25.85l0.88-13.18H30l0.88,13.18h1.62Z"/><path class="r1" d="M38.77,28.43l8.46-10.14-2.74-2-7,11.18Z"/><path class="r2" d="M42.36,34.22l12.81-3.23-1-3.21-12.26,4.91Z"/><path class="r3" d="M41.86,41l12.26,4.91,1-3.21L42.36,39.48Z"/><path class="r4" d="M38.77,45.27l-1.31,1,7,11.18,2.74-2Z"/><path class="r5" d="M30,61h3.38L32.46,47.85H30.84Z"/><path class="r6" d="M18.81,57.4l7-11.18-1.31-1L16.08,55.41Z"/><path class="r7" d="M20.94,39.48L8.14,42.71l1,3.21L21.44,41Z"/><path class="r8" d="M21.44,32.68L9.18,27.77,8.14,31l12.81,3.23Z"/><path class="r9" d="M24.54,28.43l1.31-1-7-11.18-2.73,2Z"/></g></svg> Suche läuft</div>` : 'Keine offenen Suchen';
 }
 
 // ═══════════ FILTERS ═══════════
@@ -495,7 +529,7 @@ function renderTable() {
       const link = a.datasheet_url
         ? `<a href="${a.datasheet_url}" target="_blank" onclick="event.stopPropagation()"><span class="material-symbols-outlined" style="font-size:15px;">description</span> PDF</a>`
         : '<span class="c-muted">–</span>';
-      return `<tr onclick="openDetail('${a.id}')">
+      return `<tr onclick="openDetail('${a.id}')" class="rich-tip">
         <td><span class="c-product">${esc(a.manufacturer)}</span></td>
         <td>${esc(a.product_name || a.manufacturer_sku)}</td>
         <td><span class="c-sku">${esc(a.manufacturer_sku || '–')}</span></td>
@@ -507,6 +541,7 @@ function renderTable() {
             <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
           </button>
         </td>
+        ${richCard(a)}
       </tr>`;
     }).join('');
   }
@@ -518,6 +553,37 @@ function statusBadge(s) {
   if (s === 'searching') return '<span class="badge badge-blue"><span class="badge-dot"></span>Suche läuft</span>';
   if (s === 'queued') return '<span class="badge badge-yellow"><span class="badge-dot"></span>Warteschlange</span>';
   return '<span class="badge badge-red"><span class="badge-dot"></span>Nicht gefunden</span>';
+}
+
+function sunLoader(size) {
+  const cls = size === 'sm' ? 'lum-loader-sm' : size === 'lg' ? 'lum-loader-lg' : '';
+  return `<div class="lum-loader ${cls}"><svg class="lum-loader-sun" viewBox="0 0 47 48.5" fill="currentColor"><g transform="translate(-8.14,-12.67)"><path class="r0" d="M32.46,25.85l0.88-13.18H30l0.88,13.18h1.62Z"/><path class="r1" d="M38.77,28.43l8.46-10.14-2.74-2-7,11.18Z"/><path class="r2" d="M42.36,34.22l12.81-3.23-1-3.21-12.26,4.91Z"/><path class="r3" d="M41.86,41l12.26,4.91,1-3.21L42.36,39.48Z"/><path class="r4" d="M38.77,45.27l-1.31,1,7,11.18,2.74-2Z"/><path class="r5" d="M30,61h3.38L32.46,47.85H30.84Z"/><path class="r6" d="M18.81,57.4l7-11.18-1.31-1L16.08,55.41Z"/><path class="r7" d="M20.94,39.48L8.14,42.71l1,3.21L21.44,41Z"/><path class="r8" d="M21.44,32.68L9.18,27.77,8.14,31l12.81,3.23Z"/><path class="r9" d="M24.54,28.43l1.31-1-7-11.18-2.73,2Z"/></g></svg></div>`;
+}
+
+function richCard(a) {
+  if (a.crawl_status !== 'found' || (!a.vf_typ && !a.flux_typ && !a.cct_k)) return '';
+  const items = [
+    a.power_nominal ? ['Leistung', a.power_nominal + ' W'] : null,
+    a.flux_typ ? ['Lichtstrom', a.flux_typ + ' lm'] : null,
+    a.efficacy ? ['Effizienz', a.efficacy + ' lm/W'] : null,
+    a.cct_k ? ['Farbtemp.', a.cct_k + ' K'] : null,
+    a.cri_ra ? ['CRI Ra', '' + a.cri_ra] : null,
+    a.vf_typ ? ['Vf (typ.)', a.vf_typ + ' V'] : null,
+    a.viewing_angle ? ['Winkel', a.viewing_angle + '°'] : null,
+    a.package_type ? ['Package', a.package_type] : null,
+    a.tj_max ? ['Tj max', a.tj_max + ' °C'] : null,
+    a.lifetime_l70_hours ? ['L70', a.lifetime_l70_hours + ' h'] : null,
+    a.rth_js ? ['Rth J-S', a.rth_js + ' K/W'] : null,
+    a.if_typ ? ['If (typ.)', a.if_typ + ' mA'] : null,
+  ].filter(Boolean).slice(0, 8);
+  if (items.length === 0) return '';
+
+  const conf = a.ai_confidence ? Math.round(a.ai_confidence * 100) : '–';
+  return `<div class="rich-card">
+    <div class="rc-header"><h4>${esc(a.manufacturer)} ${esc(a.product_name || a.manufacturer_sku)}</h4><span>${a.package_type || 'LED'} · Konfidenz ${conf}%</span></div>
+    <div class="rc-body"><div class="rc-grid">${items.map(i => `<div class="rc-item"><div class="rc-label">${i[0]}</div><div class="rc-val">${i[1]}</div></div>`).join('')}</div></div>
+    ${a.datasheet_url ? `<div class="rc-footer">📄 Datenblatt verfügbar · Klick für Details</div>` : ''}
+  </div>`;
 }
 
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -620,50 +686,86 @@ function renderDetail(id) {
   `;
 
   if (a.crawl_status === 'found') {
-    // Electrical
-    const elec = [
-      ['Vf (typ.)', a.vf_typ, 'V'], ['Vf (min)', a.vf_min, 'V'], ['Vf (max)', a.vf_max, 'V'],
-      ['If (typ.)', a.if_typ, 'mA'], ['If (max)', a.if_max, 'mA'],
-      ['Vr (max)', a.vr_max, 'V'], ['Pd (max)', a.pd_max, 'W'], ['Leistung', a.power_nominal, 'W'],
-    ].filter(r => r[1] !== null && r[1] !== undefined);
-
-    if (elec.length) {
-      html += `<div class="d-section"><div class="d-section-title">Elektrische Daten</div>${elec.map(r => dRow(r[0], r[1] + ' ' + r[2])).join('')}</div>`;
+    // Description
+    if (a.description) {
+      html += `<div class="d-section"><p style="font-size:13px;color:var(--lum-mint);font-style:italic;">${esc(a.description)}</p></div>`;
     }
+
+    // Helper: build section from field array, only showing non-null values
+    function specSection(title, fields) {
+      const rows = fields.filter(r => r[1] !== null && r[1] !== undefined && r[1] !== '');
+      if (rows.length === 0) return '';
+      return `<div class="d-section"><div class="d-section-title">${title}</div>${rows.map(r => dRow(r[0], r[1] + (r[2] ? ' ' + r[2] : ''))).join('')}</div>`;
+    }
+
+    // Electrical
+    html += specSection('Elektrische Daten', [
+      ['Vf (typ.)', a.vf_typ, 'V'], ['Vf (min)', a.vf_min, 'V'], ['Vf (max)', a.vf_max, 'V'],
+      ['If (typ.)', a.if_typ, 'mA'], ['If (max)', a.if_max, 'mA'], ['If Puls (max)', a.if_pulse_max, 'mA'],
+      ['Vr (max)', a.vr_max, 'V'], ['Pd (max)', a.pd_max, 'W'], ['Leistung', a.power_nominal, 'W'],
+      ['ESD (HBM)', a.esd_hbm, 'V'],
+    ]);
 
     // Optical
-    const opt = [
-      ['Lichtstrom (typ.)', a.flux_typ, 'lm'], ['Lichtstrom (min)', a.flux_min, 'lm'],
-      ['Lichtausbeute', a.efficacy, 'lm/W'], ['Farbtemperatur', a.cct_k, 'K'],
-      ['CRI Ra', a.cri_ra, ''], ['CRI R9', a.cri_r9, ''], ['Abstrahlwinkel', a.viewing_angle, '°'],
-      ['Dom. Wellenlänge', a.dom_wavelength, 'nm'], ['Peak Wellenlänge', a.peak_wavelength, 'nm'],
-      ['SDCM', a.sdcm, ''],
+    html += specSection('Optische Daten', [
+      ['Lichtstrom (typ.)', a.flux_typ, 'lm'], ['Lichtstrom (min)', a.flux_min, 'lm'], ['Lichtstrom (max)', a.flux_max, 'lm'],
+      ['Test-Strom', a.flux_test_current_ma, 'mA'],
+      ['Lichtausbeute', a.efficacy, 'lm/W'],
+      ['Farbtemperatur', a.cct_k, 'K'], ['CCT-Optionen', a.cct_options, ''],
+      ['CRI Ra', a.cri_ra, ''], ['CRI R9', a.cri_r9, ''], ['CRI (min)', a.cri_min, ''],
+      ['Abstrahlwinkel', a.viewing_angle, '°'],
+      ['Dom. Wellenlänge', a.dom_wavelength, 'nm'],
+      ['Dom. WL (min)', a.dom_wavelength_min, 'nm'], ['Dom. WL (max)', a.dom_wavelength_max, 'nm'],
+      ['Peak Wellenlänge', a.peak_wavelength, 'nm'],
+      ['SDCM', a.sdcm, ''], ['Spektrum', a.spectrum_type, ''],
+    ]);
+
+    // Mechanical
+    html += specSection('Mechanisch / Package', [
+      ['Package', a.package_type, ''], ['Standard', a.package_standard, ''],
+      ['Abmessungen', formatDims(a), ''],
+      ['Linse', a.lens_type, ''], ['Anschluss', a.lead_type, ''],
+      ['Gewicht', a.weight_g, 'g'], ['Marking', a.marking, ''],
+    ]);
+
+    // Thermal
+    html += specSection('Thermische Daten', [
+      ['Rth J-S', a.rth_js, 'K/W'], ['Rth J-A', a.rth_ja, 'K/W'],
+      ['Tj (max)', a.tj_max, '°C'], ['Tj (typ.)', a.tj_typ, '°C'],
+      ['Ts (max)', a.ts_max, '°C'],
+      ['Ta Bereich', (a.ta_range_min !== null && a.ta_range_max !== null) ? `${a.ta_range_min} … ${a.ta_range_max}` : null, '°C'],
+      ['Lager-Temp.', (a.storage_temp_min !== null && a.storage_temp_max !== null) ? `${a.storage_temp_min} … ${a.storage_temp_max}` : null, '°C'],
+      ['Reflow', a.reflow_profile, ''], ['MSL', a.moisture_sensitivity, ''],
+    ]);
+
+    // Lifetime
+    html += specSection('Lebensdauer', [
+      ['L70', a.lifetime_l70_hours, 'h'],
+      ['Test-Temp.', a.lifetime_test_temp_c, '°C'],
+      ['Test-Strom', a.lifetime_test_current_ma, 'mA'],
+    ]);
+
+    // Compliance
+    const compliance = [
+      ['RoHS', a.rohs_compliant, ''], ['REACH', a.reach_compliant, ''],
+      ['AEC-Q102', a.aec_q102, ''], ['UL', a.ul_listed, ''],
     ].filter(r => r[1] !== null && r[1] !== undefined);
-
-    if (opt.length) {
-      html += `<div class="d-section"><div class="d-section-title">Optische Daten</div>${opt.map(r => dRow(r[0], r[1] + (r[2] ? ' ' + r[2] : ''))).join('')}</div>`;
+    if (compliance.length) {
+      html += `<div class="d-section"><div class="d-section-title">Zertifizierungen</div>${compliance.map(r => {
+        const val = r[1] === true || r[1] === 'true' ? '<span style="color:var(--lum-green);font-weight:700;">✓ Ja</span>' : r[1] === false || r[1] === 'false' ? '<span style="color:var(--lum-red);">✗ Nein</span>' : esc(String(r[1]));
+        return dRow(r[0], val);
+      }).join('')}</div>`;
     }
 
-    // Thermal/Mechanical
-    const therm = [
-      ['Package', a.package_type, ''], ['Abmessungen', formatDims(a), ''],
-      ['Rth J-S', a.rth_js, 'K/W'], ['Tj (max)', a.tj_max, '°C'], ['Ts (max)', a.ts_max, '°C'],
-    ].filter(r => r[1] !== null && r[1] !== undefined);
-
-    if (therm.length) {
-      html += `<div class="d-section"><div class="d-section-title">Thermisch / Mechanisch</div>${therm.map(r => dRow(r[0], r[1] + (r[2] ? ' ' + r[2] : ''))).join('')}</div>`;
-    }
-
-    // Datasheet link
-    if (a.datasheet_url) {
-      html += `<div class="d-section">
-        <div class="d-section-title">Datenblatt</div>
-        <a href="${a.datasheet_url}" target="_blank" class="btn btn-accent btn-sm" style="margin-bottom:8px;">
-          <span class="material-symbols-outlined mi">description</span> PDF öffnen
-        </a>
-        ${a.crawled_at ? `<p style="font-size:12px;color:var(--lum-mint);margin-top:8px;">Gefunden am ${new Date(a.crawled_at).toLocaleDateString('de-DE')}</p>` : ''}
-      </div>`;
-    }
+    // Datasheet link + info
+    html += `<div class="d-section">
+      <div class="d-section-title">Datenblatt</div>
+      ${a.datasheet_url ? `<a href="${a.datasheet_url}" target="_blank" class="btn btn-accent btn-sm" style="margin-bottom:8px;">
+        <span class="material-symbols-outlined mi">description</span> PDF öffnen
+      </a>` : ''}
+      ${a.datasheet_revision ? `<p style="font-size:12px;color:var(--lum-mint);margin-top:4px;">Revision: ${esc(a.datasheet_revision)}${a.datasheet_date ? ' · ' + esc(a.datasheet_date) : ''}</p>` : ''}
+      ${a.crawled_at ? `<p style="font-size:12px;color:var(--lum-mint);margin-top:4px;">Gefunden am ${new Date(a.crawled_at).toLocaleDateString('de-DE')}</p>` : ''}
+    </div>`;
   } else if (a.crawl_status === 'searching' || a.crawl_status === 'queued') {
     html += renderCrawlLog(a, true);
   } else if (a.crawl_status === 'failed') {
@@ -711,8 +813,8 @@ function renderCrawlLog(a, isRunning) {
   const logs = a.crawl_log || [];
   if (logs.length === 0 && isRunning) {
     return `<div class="d-section" style="text-align:center;padding:32px 0;">
-      <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:12px;"></div>
-      <p style="color:var(--lum-mint);font-size:13px;">Crawler wird gestartet …</p>
+      ${sunLoader()}
+      <p style="color:var(--lum-mint);font-size:13px;margin-top:12px;">Crawler wird gestartet …</p>
     </div>`;
   }
   if (logs.length === 0) return '';
@@ -746,7 +848,7 @@ function renderCrawlLog(a, isRunning) {
   if (isRunning) {
     html += `<div class="log-entry">
       <div style="position:relative;"><div class="log-dot dot-run"></div></div>
-      <div style="flex:1;"><div class="log-detail"><span class="spinner" style="width:12px;height:12px;border-width:1.5px;margin-right:6px;"></span> Läuft …</div></div>
+      <div style="flex:1;"><div class="log-detail"><div class="lum-loader-inline" style="color:var(--lum-teal);">${sunLoader('sm')} <span class="lum-loader-text">Läuft …</span></div></div></div>
     </div>`;
   }
 
